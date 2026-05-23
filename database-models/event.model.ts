@@ -150,11 +150,31 @@ function generateSlug(title: string): string {
 
 // Helper function to normalize date to ISO format
 function normalizeDate(dateString: string): string {
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) {
+  // Enforce strict YYYY-MM-DD format
+  const dateRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const match = dateString.trim().match(dateRegex);
+  
+  if (!match) {
     throw new Error('Invalid date format');
   }
-  return date.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+  
+  const year = parseInt(match[1]);
+  const month = parseInt(match[2]);
+  const day = parseInt(match[3]);
+  
+  // Create a UTC date using Date.UTC to avoid timezone-induced shifts
+  const date = new Date(Date.UTC(year, month - 1, day));
+  
+  // Verify the UTC year/month/day match the parsed values to catch invalid dates
+  // (e.g., 2021-02-29, which is invalid as Feb 29 doesn't exist in 2021)
+  if (date.getUTCFullYear() !== year || 
+      date.getUTCMonth() + 1 !== month || 
+      date.getUTCDate() !== day) {
+    throw new Error('Invalid date format');
+  }
+  
+  // Return the original validated string to avoid any local/UTC conversion
+  return dateString.trim();
 }
 
 // Helper function to normalize time format
