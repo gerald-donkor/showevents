@@ -105,12 +105,12 @@ const EventSchema = new Schema<IEvent>(
     },
   },
   {
-    timestamps: true, // Auto-generate createdAt and updatedAt
+    timestamps: true,
   }
 );
 
 // Pre-save hook for slug generation and data normalization
-EventSchema.pre('save', function (next) {
+EventSchema.pre('save', async function () {
   const event = this as IEvent;
 
   // Generate slug only if title changed or document is new
@@ -127,8 +127,6 @@ EventSchema.pre('save', function (next) {
   if (event.isModified('time')) {
     event.time = normalizeTime(event.time);
   }
-
-  next();
 });
 
 // Helper function to generate URL-friendly slug
@@ -136,10 +134,10 @@ function generateSlug(title: string): string {
   const slug = title
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
-    .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 
   if (!slug) {
     throw new Error('Title must contain at least one URL-safe character');
@@ -150,57 +148,52 @@ function generateSlug(title: string): string {
 
 // Helper function to normalize date to ISO format
 function normalizeDate(dateString: string): string {
-  // Enforce strict YYYY-MM-DD format
   const dateRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
   const match = dateString.trim().match(dateRegex);
-  
+
   if (!match) {
     throw new Error('Invalid date format');
   }
-  
+
   const year = parseInt(match[1]);
   const month = parseInt(match[2]);
   const day = parseInt(match[3]);
-  
-  // Create a UTC date using Date.UTC to avoid timezone-induced shifts
+
   const date = new Date(Date.UTC(year, month - 1, day));
-  
-  // Verify the UTC year/month/day match the parsed values to catch invalid dates
-  // (e.g., 2021-02-29, which is invalid as Feb 29 doesn't exist in 2021)
-  if (date.getUTCFullYear() !== year || 
-      date.getUTCMonth() + 1 !== month || 
-      date.getUTCDate() !== day) {
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() + 1 !== month ||
+    date.getUTCDate() !== day
+  ) {
     throw new Error('Invalid date format');
   }
-  
-  // Return the original validated string to avoid any local/UTC conversion
+
   return dateString.trim();
 }
 
 // Helper function to normalize time format
 function normalizeTime(timeString: string): string {
-  // Handle various time formats and convert to HH:MM (24-hour format)
   const timeRegex = /^(\d{1,2}):(\d{2})(\s*(AM|PM))?$/i;
   const match = timeString.trim().match(timeRegex);
-  
+
   if (!match) {
     throw new Error('Invalid time format. Use HH:MM or HH:MM AM/PM');
   }
-  
+
   let hours = parseInt(match[1]);
   const minutes = match[2];
   const period = match[4]?.toUpperCase();
-  
+
   if (period) {
-    // Convert 12-hour to 24-hour format
     if (period === 'PM' && hours !== 12) hours += 12;
     if (period === 'AM' && hours === 12) hours = 0;
   }
-  
+
   if (hours < 0 || hours > 23 || parseInt(minutes) < 0 || parseInt(minutes) > 59) {
     throw new Error('Invalid time values');
   }
-  
+
   return `${hours.toString().padStart(2, '0')}:${minutes}`;
 }
 
